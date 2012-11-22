@@ -507,7 +507,7 @@ public class JaxbAnnotationIntrospector
     public Object findContentSerializer(Annotated am)
     {
         // [JACKSON-722]: Adapter applicable to value types
-        XmlAdapter<?,?> adapter = _findContentAdapter(am);
+        XmlAdapter<?,?> adapter = _findContentAdapterSerialize(am);
         boolean fromClass = !(am instanceof AnnotatedMember);
         return (adapter == null) ? null : new XmlAdapterJsonSerializer(adapter, fromClass);
     }
@@ -696,7 +696,12 @@ public class JaxbAnnotationIntrospector
     @Override
     public Object findDeserializer(Annotated am)
     {
-        final Class<?> type = am.getRawType();
+        Class<?> type;
+        if (am instanceof AnnotatedMethod) {
+            type = ((AnnotatedMethod) am).getRawParameterType(0);
+        } else {
+            type = am.getRawType();
+        }
 
         // As per [JACKSON-722], more checks for structured types
         XmlAdapter<Object,Object> adapter = findAdapter(am, true, type);
@@ -732,7 +737,7 @@ public class JaxbAnnotationIntrospector
     public Object findContentDeserializer(Annotated am)
     {
         // [JACKSON-722]: Adapter applicable to value types
-        XmlAdapter<?,?> adapter = _findContentAdapter(am);
+        XmlAdapter<?,?> adapter = _findContentAdapterDeserialize(am);
         return (adapter == null) ? null : new XmlAdapterJsonDeserializer(adapter);
     }
 
@@ -1233,13 +1238,34 @@ public class JaxbAnnotationIntrospector
         return params[1].getRawClass();
     }
 
-    protected XmlAdapter<?,?> _findContentAdapter(Annotated ann)
+    protected XmlAdapter<?,?> _findContentAdapterSerialize(Annotated ann)
     {
-        Class<?> type = ann.getRawType();
+        
+		Class<?> type = ann.getRawType();
+		Type genericType=ann.getGenericType();
+        return _findContentAdapter(ann, type, genericType);
+    }
+	
+    protected XmlAdapter<?,?> _findContentAdapterDeserialize(Annotated ann)
+    {
+		Class<?> type;
+		Type genericType;
+		if (ann instanceof AnnotatedMethod) {
+			type = ((AnnotatedMethod) ann).getRawParameterType(0);
+			genericType=((AnnotatedMethod) ann).getGenericParameterType(0);
+		} else {
+			type = ann.getRawType();
+			genericType=ann.getGenericType();
+		}
+        return _findContentAdapter(ann, type, genericType);
+    }
+    
+    protected XmlAdapter<?,?> _findContentAdapter(Annotated ann, Class<?> type, Type genericType)
+    {
         // and let's assume this only applies as member annotation:
         if (isContainerType(type) && (ann instanceof AnnotatedMember)) {
             AnnotatedMember member = (AnnotatedMember) ann;
-            JavaType containerType = getTypeFactory().constructType(member.getGenericType(),
+            JavaType containerType = getTypeFactory().constructType(genericType,
                     member.getDeclaringClass());
             Class<?> contentType = containerType.getContentType().getRawClass();
             XmlAdapter<Object,Object> adapter = findAdapter(member, true, type);
