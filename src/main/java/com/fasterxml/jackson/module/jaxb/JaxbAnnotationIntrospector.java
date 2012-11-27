@@ -696,12 +696,7 @@ public class JaxbAnnotationIntrospector
     @Override
     public Object findDeserializer(Annotated am)
     {
-        Class<?> type;
-        if (am instanceof AnnotatedMethod) {
-            type = ((AnnotatedMethod) am).getRawParameterType(0);
-        } else {
-            type = am.getRawType();
-        }
+        Class<?> type=_getRawType(am);
 
         // As per [JACKSON-722], more checks for structured types
         XmlAdapter<Object,Object> adapter = findAdapter(am, true, type);
@@ -1248,16 +1243,31 @@ public class JaxbAnnotationIntrospector
 	
     protected XmlAdapter<?,?> _findContentAdapterDeserialize(Annotated ann)
     {
-		Class<?> type;
-		Type genericType;
+        Class<?> type=_getRawType(ann);
+		Type genericType=_getGenericType(ann);
+        return _findContentAdapter(ann, type, genericType);
+    }
+    
+    private static Class<?> _getRawType(Annotated ann) {
+        Class<?> type=null;
 		if (ann instanceof AnnotatedMethod) {
 			type = ((AnnotatedMethod) ann).getRawParameterType(0);
+        }
+        if (null==type) {
+            type = ann.getRawType();
+        }
+        return type;
+    }
+    
+    private static Type _getGenericType(Annotated ann) {
+        Type genericType=null;
+        if (ann instanceof AnnotatedMethod) {
 			genericType=((AnnotatedMethod) ann).getGenericParameterType(0);
-		} else {
-			type = ann.getRawType();
-			genericType=ann.getGenericType();
 		}
-        return _findContentAdapter(ann, type, genericType);
+        if (null==genericType) {
+            genericType = ann.getGenericType();
+        }
+        return genericType;
     }
     
     protected XmlAdapter<?,?> _findContentAdapter(Annotated ann, Class<?> type, Type genericType)
